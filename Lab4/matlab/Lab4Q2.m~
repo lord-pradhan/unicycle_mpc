@@ -31,14 +31,14 @@ Dbar = zeros(2,1);
 %%% Parameters to change by user!!
 
 % MPC Horizon steps
-Nsteps = 2;
+Nsteps = 5;
 
 % Cost function weights 
 Noutput = size(C,1);
 Nstate = size(A,2);
 
 % Optimization variables is $ Z^* = [x, \dot{x}, \theta, \dot{\theta}] $
-Q = diag([100,0]);
+Q = diag([10,1]);
 R = 1;
 Rd = 1;
 
@@ -54,13 +54,14 @@ Sx = [];
 Su1 = [];
 Su1_k = zeros(Noutput,1);
 Su = zeros(Noutput*Nsteps, Nsteps);
-Qs = {};
-for i = 1:Nsteps
+for i = 1:Nsteps-1
     
     iRows = 1+(i-1)*Noutput:2+(i-1)*Noutput;
+    
     % Build Sx matrix
     Sx = [Sx;C*A^i];
-    
+        iRows = 1+(i-1)*Noutput:2+(i-1)*Noutput;
+
     % Build Su1 matrix
     Su1_k = Su1_k + C*A^(i-1)*B;
     Su1 = [Su1;Su1_k];
@@ -68,8 +69,10 @@ for i = 1:Nsteps
     % Build Su matrix 
     Su(iRows,i) = C*B;
     Su(iRows,1) = Su1_k;
-    
-    % Collect Cost function weights into cell array
+end
+
+% Collect Cost function weights into cell array
+for i = 1:Nsteps
     Qs{i} = Q;
     Rs{i} = R;
     Rds{i} = Rd;

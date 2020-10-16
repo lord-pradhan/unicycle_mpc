@@ -31,14 +31,14 @@ Dbar = zeros(2,1);
 %%% Parameters to change by user!!
 
 % MPC Horizon steps
-Nsteps = 2;
+Nsteps = 10;
 
 % Cost function weights 
 Noutput = size(C,1);
 Nstate = size(A,2);
 
 % Optimization variables is $ Z^* = [x, \dot{x}, \theta, \dot{\theta}] $
-Q = diag([100,0]);
+Q = diag([10,0]);
 R = 1;
 Rd = 1;
 
@@ -57,7 +57,6 @@ Su = zeros(Noutput*Nsteps, Nsteps);
 Qs = {};
 for i = 1:Nsteps
     
-    iRows = 1+(i-1)*Noutput:2+(i-1)*Noutput;
     % Build Sx matrix
     Sx = [Sx;C*A^i];
     
@@ -66,6 +65,7 @@ for i = 1:Nsteps
     Su1 = [Su1;Su1_k];
     
     % Build Su matrix 
+    iRows = 1+(i-1)*Noutput:2+(i-1)*Noutput;
     Su(iRows,i) = C*B;
     Su(iRows,1) = Su1_k;
     
@@ -148,10 +148,18 @@ end
 
 
 %% Plot results 
+
+% Reference trajectory
 figure
 plot(Xref(1,:),'LineWidth',2,'DisplayName','Ref. Position [m]');
 title('Reference signal');
 
+% Control input
+figure
+plot(Uopt,'LineWidth',2,'DisplayName','Control') ;
+title('Control input');
+
+% State evolution
 figure
 subplot(2,2,1)
 plot(Xact(:,1),'LineWidth',2,'DisplayName','Position [m]');
