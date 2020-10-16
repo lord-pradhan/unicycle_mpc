@@ -7,7 +7,7 @@ m_c = 0.493; m_p = 0.312; I_p = 0.00024;
 l = 0.04; f = 0.01; k_t = 0.11; R_lqr = 10; r = 0.0335; g=9.81;
 sample_time = 0.005;
 
-dt_mpc = 0.2; N_hor = 10;
+dt_mpc = 0.02;
 U_max = 8;
 
 %% setup matrices
@@ -50,13 +50,13 @@ A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
 R = 0.1*diag([1,1,1,1]);
-RD = diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 10*diag([1,0,0,0]);
+RD = 0.001*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
+Q = 100*diag([1,0,0,0]);
 
 Ns = size(A,1); % number of states
 
 %% build the more complicated matrices
-N = 7;  %This is the horizon for MPC
+N = 4;  %This is the horizon for MPC
 Qbar = [];
 Rbar = [];
 RbarD = [];
@@ -76,7 +76,7 @@ for ii = 1:N
 %         Su(ii,jj) = sum(CAB(1:ii-jj+1));
         sumTemp = zeros(Ns);
         for kk = 1:ii-jj+1
-            sumTemp = sumTemp + CAB( Ns*(kk-1) +1, : );
+            sumTemp = sumTemp + CAB( Ns*(kk-1) +1 : Ns*kk, : );
         end
         Su(Ns*(ii-1) +1 : Ns*ii, Ns*(jj-1) +1 : Ns*jj) = sumTemp;
     end
@@ -88,7 +88,7 @@ Su1=  Su(:,1:Ns);
 LL = zeros(N*Ns);
 for i=1:N
     for j=1:N
-        LL(Ns*(i-1) +1 : N3s*i, Ns*(j-1) +1 : Ns*j) = eye(Ns);
+        LL(Ns*(i-1) +1 : Ns*i, Ns*(j-1) +1 : Ns*j) = eye(Ns);
     end
 end
 LL = tril(LL);
