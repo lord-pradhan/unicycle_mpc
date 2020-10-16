@@ -105,8 +105,10 @@ Fr = -2*(Qbar*Su)';
 Fx = 2*(Sx'*Qbar*Su)';
 
 kbar = zeros(N, N*Ns);
+ktilda = zeros(N,4);
 for i = 1:N
     kbar(i, Ns*(i-1) +1 : Ns*i) = k_lqr;
+    ktilda( i,: ) = k_lqr;
 end
 
 % G = [tril(ones(N));-tril(ones(N))];
@@ -116,7 +118,7 @@ end
 G = [ kbar*LL - kbar*Su; -kbar*LL + kbar*Su ];
 W0 = U_max * ones(2*N,1);
 W_x = [kbar*Sx; -kbar*Sx];
-W_u = [-(kbar - kbar*Su1); kbar - kbar*Su1];
+W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 
 %% set up QP
 X = [0.1; 0; 0; 0];
@@ -133,16 +135,21 @@ U = [0;0;0;0];
 options = optimoptions('quadprog');
 options.Display = 'none';
 for ii = 1:T-1
-    Xact(ii,:) = X; %For graphing
+    Xact(Ns*(ii-1)+1: Ns*ii,:) = X; %For graphing
     f = Fx*X + Fu*U + Fr*r( Ns*(ii-1) +1 :  Ns*(ii+N-1) );  %Sometimes people hold r(ii) here
 %     W = W0+[ones(N,1)*-U;ones(N,1)*U];
-    W = W0 + W_x * [X; X] + W_u * [U; U];
+    W = W0 + W_x * X + W_u * U;
 
     % Solve the QP.
-    Z = quadprog(H,f,G,W+S*X,[],[],[],[],[],options);  %Here is the magic!
-    Uopt(ii) = U + Z(1);  %Just use the first item   
-    U = Uopt(ii);
+    Z = quadprog(H,f,G,W,[],[],[],[],[],options);  %Here is the magic!
+    Uopt(Ns*(ii-1)+1: Ns*ii) = U + Z(1:Ns,1);  %Just use the first item   
+    U = Uopt(Ns*(ii-1)+1: Ns*ii)';
     %Now I'll apply the optimal control to the system.
     X = A*X+B*U;
 end
-Xact(ii+1,:) = X;
+Xact(Ns*(ii-1)+1: Ns*ii,:) = X;
+
+%% plotting
+% plot([1:T-1],Xact(1:Ns:end,1),[1:T-1],r(1:Ns:end));
+
+plot(Uopt)
