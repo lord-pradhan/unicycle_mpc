@@ -25,21 +25,26 @@ B_c = [0;
 C_c = eye(4);
 D = zeros(size(C_c,1), size(B_c,2));
 
-A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
-       0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
-       0, A_c(2,1)*dt_mpc^2/2, 1+A_c(2,2)*dt_mpc^2/2, dt_mpc;
-       0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1];
-   
-B_d = [ B_c(1,1) * [dt_mpc^2, dt_mpc]';
-        B_c(2,1) * [dt_mpc^2, dt_mpc]'];
+sys_c = ss(A_c, B_c, C_c, D);
+sys_d = c2d(sys_c, dt_mpc);
+[A_d, B_d, ~, ~] = ssdata(sys_d)
+% 
+% A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
+%        0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
+%        0, A_c(2,1)*dt_mpc^2/2, 1+A_c(2,2)*dt_mpc^2/2, dt_mpc;
+%        0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1]
+%    
+% B_d = [ B_c(1,1) * [dt_mpc^2, dt_mpc]';
+%         B_c(2,1) * [dt_mpc^2, dt_mpc]']
 
+    
 %% lqr matrices
 Q_lqr = diag([0.001, 0.1, 5000, 1]);
 R_lqr = 0.2;
 
 [k_lqr,S,CLP] = lqr(A_c,B_c,Q_lqr,R_lqr);
 k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
-
+% k_lqr = -k_lqr;
 %% mpc matrices
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
@@ -51,7 +56,7 @@ Q = diag([1,0,0,0]);
 Ns = size(A,1); % number of states
 
 %% build the more complicated matrices
-N = 3;  %This is the horizon for MPC
+N = 7;  %This is the horizon for MPC
 Qbar = [];
 Rbar = [];
 RbarD = [];
@@ -122,7 +127,7 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 
 %% set up QP
 X = [0.1; 0; 0; 0];
-T = 20;
+T = 40;
 signal = square([1:T+N+1]/6);
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
@@ -147,9 +152,12 @@ for ii = 1:T-1
     %Now I'll apply the optimal control to the system.
     X = A*X+B*U;
 end
-Xact(Ns*(ii-1)+1: Ns*ii,:) = X;
+Xact(Ns*(ii)+1: Ns*(ii+1),:) = X;
 
 %% plotting
-% plot([1:T-1],Xact(1:Ns:end,1),[1:T-1],r(1:Ns:end));
+xout = Xact(1:Ns:end,1);
+rin = r(1:Ns:Ns*T);
+plot( [1:T],xout, [1:T], rin);
 
+figure(2)
 plot(Uopt)
