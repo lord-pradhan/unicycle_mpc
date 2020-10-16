@@ -51,7 +51,7 @@ B = B_d*k_lqr;
 C = eye(4);
 R = 0.1*diag([1,1,1,1]);
 RD = diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = diag([1,0,0,0]);
+Q = 10*diag([1,0,0,0]);
 
 Ns = size(A,1); % number of states
 
@@ -88,7 +88,7 @@ Su1=  Su(:,1:Ns);
 LL = zeros(N*Ns);
 for i=1:N
     for j=1:N
-        LL(Ns*(i-1) +1 : Ns*i, Ns*(j-1) +1 : Ns*j) = eye(Ns);
+        LL(Ns*(i-1) +1 : N3s*i, Ns*(j-1) +1 : Ns*j) = eye(Ns);
     end
 end
 LL = tril(LL);
@@ -99,7 +99,7 @@ diagMat = [];
 temp1 = diag(LL'*Rbar');
 for i = 1:N    
     for j = 1:Ns
-        diagMat(Ns*(i-1) +j, j) = temp1( Ns*(i-1) + j )*Ns;
+        diagMat(Ns*(i-1) +j, j) = temp1( Ns*(i-1) + j )* (N-i+1) ;
     end
 end
     
