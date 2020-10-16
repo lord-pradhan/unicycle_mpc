@@ -76,7 +76,7 @@ for ii = 1:N
         Su(Ns*(ii-1) +1 : Ns*ii, Ns*(jj-1) +1 : Ns*jj) = sumTemp;
     end
 end
-Su1=  Su(:,1);
+Su1=  Su(:,1:Ns);
 
 %% convert into form used by QP
 % LL = tril(ones(N));
@@ -89,7 +89,18 @@ end
 LL = tril(LL);
 
 H = 2*(LL'*Rbar*LL + RbarD + Su'*Qbar*Su);
-Fu = 2*(diag(LL'*Rbar')'+Su1'*Qbar*Su)';  %Note the trick on Rbar - u(-1) is really a scalar
+
+diagMat = [];
+temp1 = diag(LL'*Rbar');
+for i = 1:N    
+    for j = 1:Ns
+        diagMat(Ns*(i-1) +j, j) = temp1( Ns*(i-1) + j )*Ns;
+    end
+end
+    
+
+% Fu = 2*(diag(LL'*Rbar')'+Su1'*Qbar*Su)';  %Note the trick on Rbar - u(-1) is really a scalar
+Fu = 2*(diagMat'+Su1'*Qbar*Su)'; 
 Fr = -2*(Qbar*Su)';
 Fx = 2*(Sx'*Qbar*Su)';
 
@@ -109,15 +120,22 @@ W0 = ones(2*N,1);
 X = [0.1; 0; 0; 0];
 T = 20;
 signal = square([1:T+N+1]/6);
-r = [, zeros();
+r = zeros(Ns * size(signal, 2), 1);
+for i = 1:size(signal, 2)
+    r( Ns*(i-1) +1, 1 ) = signal(1, i);
+end
+    
+% r = [signal; zeros(size(signal)); zeros(size(signal)); zeros(size(signal))];
 Z = zeros(2,1);
-U = 0;
+U = [0;0;0;0];
 options = optimoptions('quadprog');
 options.Display = 'none';
 for ii = 1:T-1
     Xact(ii,:) = X; %For graphing
-    f = Fx*X+Fu*U+Fr*r(ii:ii+N-1)';  %Sometimes people hold r(ii) here
-    W = W0+[ones(N,1)*-U;ones(N,1)*U];
+    f = Fx*X + Fu*U + Fr*r( Ns*(ii-1) +1 :  Ns*(ii+N-1) );  %Sometimes people hold r(ii) here
+%     W = W0+[ones(N,1)*-U;ones(N,1)*U];
+    W = W0 + ;
+
     % Solve the QP.
     Z = quadprog(H,f,G,W+S*X,[],[],[],[],[],options);  %Here is the magic!
     Uopt(ii) = U + Z(1);  %Just use the first item   
