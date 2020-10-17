@@ -7,8 +7,8 @@ m_c = 0.493; m_p = 0.312; I_p = 0.00024;
 l = 0.04; f = 0.01; k_t = 0.11; R_lqr = 10; r = 0.0335; g=9.81;
 sample_time = 0.005;
 
-dt_mpc = 0.02;
-U_max = 8;
+dt_mpc = 0.2;
+U_max = 50;
 
 %% setup matrices
 % X_ref = [0,0,0.0,0]';
@@ -27,7 +27,7 @@ D = zeros(size(C_c,1), size(B_c,2));
 
 sys_c = ss(A_c, B_c, C_c, D);
 sys_d = c2d(sys_c, dt_mpc);
-[A_d, B_d, ~, ~] = ssdata(sys_d)
+[A_d, B_d, ~, ~] = ssdata(sys_d);
 % 
 % A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
 %        0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
@@ -49,14 +49,14 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 0.1*diag([1,1,1,1]);
-RD = 0.001*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 100*diag([1,0,0,0]);
+R = 0.1*diag([1,1,1000,1]);
+RD = 0.01*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
+Q = 100*diag([10,0.0001,10,0.0001]);
 
 Ns = size(A,1); % number of states
 
 %% build the more complicated matrices
-N = 4;  %This is the horizon for MPC
+N = 3;  %This is the horizon for MPC
 Qbar = [];
 Rbar = [];
 RbarD = [];
@@ -126,9 +126,9 @@ W_x = [kbar*Sx; -kbar*Sx];
 W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 
 %% set up QP
-X = [0.1; 0; 0; 0];
-T = 40;
-signal = square([1:T+N+1]/6);
+X = [0; 0; 0; 0];
+T = 100;
+signal = square([1:T+N+1]/20);
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
     r( Ns*(i-1) +1, 1 ) = signal(1, i);
