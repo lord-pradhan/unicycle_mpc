@@ -8,7 +8,7 @@ l = 0.04; f = 0.01; k_t = 0.11; R_lqr = 10; r = 0.0335; g=9.81;
 sample_time = 0.005;
 
 dt_mpc = 0.2;
-U_max = 50;
+U_max = 500;
 
 %% setup matrices
 % X_ref = [0,0,0.0,0]';
@@ -49,9 +49,9 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 0.1*diag([1,1,1000,1]);
-RD = 0.01*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 100*diag([10,0.0001,10,0.0001]);
+R = 0.1*diag([1,1,1,1]);
+RD = 0.0*diag([1,1,100,1]);  %Weight the slew rate - respect actuation bandwidths
+Q = 100*diag([1000,0.01,100,0.001]);
 
 Ns = size(A,1); % number of states
 
@@ -110,7 +110,7 @@ Fr = -2*(Qbar*Su)';
 Fx = 2*(Sx'*Qbar*Su)';
 
 kbar = zeros(N, N*Ns);
-ktilda = zeros(N,4);
+ktilda = zeros(N,Ns);
 for i = 1:N
     kbar(i, Ns*(i-1) +1 : Ns*i) = k_lqr;
     ktilda( i,: ) = k_lqr;
@@ -128,14 +128,14 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 %% set up QP
 X = [0; 0; 0; 0];
 T = 100;
-signal = square([1:T+N+1]/20);
+signal = 2*square([1:T+N+1]/60);
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
     r( Ns*(i-1) +1, 1 ) = signal(1, i);
 end
     
 % r = [signal; zeros(size(signal)); zeros(size(signal)); zeros(size(signal))];
-Z = zeros(2,1);
+Z = zeros(Ns,1);
 U = [0;0;0;0];
 options = optimoptions('quadprog');
 options.Display = 'none';
@@ -160,4 +160,4 @@ rin = r(1:Ns:Ns*T);
 plot( [1:T],xout, [1:T], rin);
 
 figure(2)
-plot(Uopt)
+plot(Uopt(1:Ns:end))
