@@ -7,7 +7,7 @@ m_c = 0.493; m_p = 0.312; I_p = 0.00024;
 l = 0.04; f = 0.01; k_t = 0.11; R_lqr = 10; r = 0.0335; g=9.81;
 
 dt_mpc = 0.2;
-U_max = 8000;
+U_max = 8;
 
 %% setup matrices
 % X_ref = [0,0,0.0,0]';
@@ -31,10 +31,10 @@ sys_d = c2d(sys_c, dt_mpc);
 A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
        0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
        0, A_c(2,1)*dt_mpc^2/2, 1+A_c(2,2)*dt_mpc^2/2, dt_mpc;
-       0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1]
+       0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1];
    
 B_d = [ B_c(1,1) * [dt_mpc^2, dt_mpc]';
-        B_c(2,1) * [dt_mpc^2, dt_mpc]']
+        B_c(2,1) * [dt_mpc^2, dt_mpc]'];
 
     
 %% lqr matrices
@@ -48,9 +48,9 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 100*diag([1,1,10,10])*1e-6;
+R = 3*diag([1,1,100,100])*1e-6;
 RD = 0.0*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 10000*diag([1,0.0,0000,0.00])*1e-6;
+Q = 100*diag([60,90.0,70,0.1])*1e-6;
 
 Ns = size(A,1); % number of states
 
@@ -127,7 +127,7 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 %% set up QP
 X = [0; 0; 0; 0];
 T = 100;
-signal = 2*square([1:T+N+1]/6);
+signal = 2*square([1:T+N+1]/60);
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
     r( Ns*(i-1) +1, 1 ) = signal(1, i);
