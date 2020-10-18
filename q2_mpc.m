@@ -5,10 +5,9 @@ close all
 %% Init variables
 m_c = 0.493; m_p = 0.312; I_p = 0.00024;
 l = 0.04; f = 0.01; k_t = 0.11; R_lqr = 10; r = 0.0335; g=9.81;
-sample_time = 0.005;
 
 dt_mpc = 0.2;
-U_max = 500;
+U_max = 8000;
 
 %% setup matrices
 % X_ref = [0,0,0.0,0]';
@@ -27,15 +26,15 @@ D = zeros(size(C_c,1), size(B_c,2));
 
 sys_c = ss(A_c, B_c, C_c, D);
 sys_d = c2d(sys_c, dt_mpc);
-[A_d, B_d, ~, ~] = ssdata(sys_d);
-% 
-% A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
-%        0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
-%        0, A_c(2,1)*dt_mpc^2/2, 1+A_c(2,2)*dt_mpc^2/2, dt_mpc;
-%        0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1]
-%    
-% B_d = [ B_c(1,1) * [dt_mpc^2, dt_mpc]';
-%         B_c(2,1) * [dt_mpc^2, dt_mpc]']
+% [A_d, B_d, ~, ~] = ssdata(sys_d);
+
+A_d = [1, dt_mpc + A_c(1,1)*dt_mpc^2/2, A_c(1,2)*dt_mpc^2/2, 0;
+       0, 1+A_c(1,1)*dt_mpc, A_c(1,2)*dt_mpc, 0;
+       0, A_c(2,1)*dt_mpc^2/2, 1+A_c(2,2)*dt_mpc^2/2, dt_mpc;
+       0, A_c(2,1)*dt_mpc, A_c(2,2)*dt_mpc, 1]
+   
+B_d = [ B_c(1,1) * [dt_mpc^2, dt_mpc]';
+        B_c(2,1) * [dt_mpc^2, dt_mpc]']
 
     
 %% lqr matrices
@@ -49,14 +48,14 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 0.1*diag([1,1,1,1]);
-RD = 0.0*diag([1,1,100,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 100*diag([1000,0.01,100,0.001]);
+R = 100*diag([1,1,10,10])*1e-6;
+RD = 0.0*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
+Q = 10000*diag([1,0.0,0000,0.00])*1e-6;
 
 Ns = size(A,1); % number of states
 
 %% build the more complicated matrices
-N = 3;  %This is the horizon for MPC
+N = 10;  %This is the horizon for MPC
 Qbar = [];
 Rbar = [];
 RbarD = [];
@@ -128,13 +127,14 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 %% set up QP
 X = [0; 0; 0; 0];
 T = 100;
-signal = 2*square([1:T+N+1]/60);
+signal = 2*square([1:T+N+1]/6);
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
     r( Ns*(i-1) +1, 1 ) = signal(1, i);
 end
     
 % r = [signal; zeros(size(signal)); zeros(size(signal)); zeros(size(signal))];
+u_motor = [];
 Z = zeros(Ns,1);
 U = [0;0;0;0];
 options = optimoptions('quadprog');
@@ -149,15 +149,38 @@ for ii = 1:T-1
     Z = quadprog(H,f,G,W,[],[],[],[],[],options);  %Here is the magic!
     Uopt(Ns*(ii-1)+1: Ns*ii) = U + Z(1:Ns,1);  %Just use the first item   
     U = Uopt(Ns*(ii-1)+1: Ns*ii)';
+    u_motor(ii) = k_lqr*( U - X );
     %Now I'll apply the optimal control to the system.
     X = A*X+B*U;
+%     X = A_d*X + B_d*u_motor(ii);
 end
 Xact(Ns*(ii)+1: Ns*(ii+1),:) = X;
 
 %% plotting
 xout = Xact(1:Ns:end,1);
 rin = r(1:Ns:Ns*T);
-plot( [1:T],xout, [1:T], rin);
+figure(1)
+plot( [1:T],xout, [1:T], rin)
+title('Position')
 
+xdotout = Xact(2:Ns:end,1);
+rin = r(2:Ns:Ns*T);
 figure(2)
-plot(Uopt(1:Ns:end))
+plot( [1:T],xdotout, [1:T], rin)
+title('Velo')
+
+thetaout = Xact(3:Ns:end,1);
+rin = r(3:Ns:Ns*T);
+figure(3)
+plot( [1:T],thetaout, [1:T], rin)
+title('Angle')
+
+thetadotout = Xact(4:Ns:end,1);
+rin = r(4:Ns:Ns*T);
+figure(4)
+plot( [1:T],thetadotout, [1:T], rin)
+title('Angular vel')
+
+figure(5)
+plot(u_motor(1:end))
+title('Control')
