@@ -48,9 +48,9 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 3*diag([1,1,100,100])*1e-6;
+R = 1*diag([1,1,100,1000]);
 RD = 0.0*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 100*diag([60,90.0,70,0.1])*1e-6;
+Q = 10*diag([10,0,1,0]);
 
 Ns = size(A,1); % number of states
 
@@ -127,7 +127,11 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 %% set up QP
 X = [0; 0; 0; 0];
 T = 100;
-signal = 2*square([1:T+N+1]/60);
+%signal = 0.1*square([1:T+N+1]/60);
+signal = zeros(1,T+N+1);
+signal(1,T/2:end) = 0.1;
+
+
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
     r( Ns*(i-1) +1, 1 ) = signal(1, i);
@@ -137,6 +141,7 @@ end
 u_motor = [];
 Z = zeros(Ns,1);
 U = [0;0;0;0];
+U_hist = [];
 options = optimoptions('quadprog');
 options.Display = 'none';
 for ii = 1:T-1
@@ -149,6 +154,7 @@ for ii = 1:T-1
     Z = quadprog(H,f,G,W,[],[],[],[],[],options);  %Here is the magic!
     Uopt(Ns*(ii-1)+1: Ns*ii) = U + Z(1:Ns,1);  %Just use the first item   
     U = Uopt(Ns*(ii-1)+1: Ns*ii)';
+    U_hist = [U_hist;U'];
     u_motor(ii) = k_lqr*( U - X );
     %Now I'll apply the optimal control to the system.
     X = A*X+B*U;
@@ -157,30 +163,11 @@ end
 Xact(Ns*(ii)+1: Ns*(ii+1),:) = X;
 
 %% plotting
-xout = Xact(1:Ns:end,1);
-rin = r(1:Ns:Ns*T);
-figure(1)
-plot( [1:T],xout, [1:T], rin)
-title('Position')
 
-xdotout = Xact(2:Ns:end,1);
-rin = r(2:Ns:Ns*T);
-figure(2)
-plot( [1:T],xdotout, [1:T], rin)
-title('Velo')
+% Restructure data to a more user friendly structure.
+X_hist = [ Xact(1:Ns:end,1),Xact(2:Ns:end,1),Xact(3:Ns:end,1),Xact(4:Ns:end,1)];
 
-thetaout = Xact(3:Ns:end,1);
-rin = r(3:Ns:Ns*T);
-figure(3)
-plot( [1:T],thetaout, [1:T], rin)
-title('Angle')
-
-thetadotout = Xact(4:Ns:end,1);
-rin = r(4:Ns:Ns*T);
-figure(4)
-plot( [1:T],thetadotout, [1:T], rin)
-title('Angular vel')
-
-figure(5)
-plot(u_motor(1:end))
-title('Control')
+X_ref = [r(1:Ns:Ns*T),r(2:Ns:Ns*T),r(3:Ns:Ns*T),r(4:Ns:Ns*T)];
+ 
+% Plot results
+plot_results(U_hist,X_ref,X_hist,u_motor);
