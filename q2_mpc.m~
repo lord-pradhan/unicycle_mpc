@@ -48,14 +48,14 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 5*diag([1,1,100,100])*1e-6;
+R = 3*diag([1,1,100,100]);
 RD = 0.0*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
-Q = 100*diag([30,30.0,70,0])*1e-6;
+Q = 100*diag([1,0,1,0]);
 
 Ns = size(A,1); % number of states
 
 %% build the more complicated matrices
-N = 10;  %This is the horizon for MPC
+N = 5;  %This is the horizon for MPC
 Qbar = [];
 Rbar = [];
 RbarD = [];
@@ -157,6 +157,14 @@ end
 Xact(Ns*(ii)+1: Ns*(ii+1),:) = X;
 
 %% plotting
+X_hist = [ Xact(1:Ns:end,1)';
+           Xact(2:Ns:end,1)';
+           Xact(3:Ns:end,1)';
+           Xact(4:Ns:end,1)'];
+
+X_ref = [r(1:Ns:Ns*T);
+plot_results(X_hist,r,u_motor);
+
 xout = Xact(1:Ns:end,1);
 rin = r(1:Ns:Ns*T);
 figure(1)
