@@ -48,7 +48,7 @@ k_lqr(4) = 4.0; % reduce gains slightly to account for gyro noise
 A = A_d - B_d*k_lqr;
 B = B_d*k_lqr;
 C = eye(4);
-R = 1*diag([1,1,100,10000]);
+R = 1*diag([1,1,100,1000]);
 RD = 0.0*diag([1,1,1,1]);  %Weight the slew rate - respect actuation bandwidths
 Q = 10*diag([10,0,1,0]);
 
@@ -127,13 +127,14 @@ W_u = [-(ktilda - kbar*Su1); ktilda - kbar*Su1];
 %% set up QP
 X = [0; 0; 0; 0];
 T = 100;
-signal = 0.1*square([1:T+N+1]/60);
-signal2 = zeros(1,T+N+1);
-signal2(1,T/2:end) = 0.1;
+%signal = 0.1*square([1:T+N+1]/60);
+signal = zeros(1,T+N+1);
+signal(1,T/2:end) = 0.1;
+
 
 r = zeros(Ns * size(signal, 2), 1);
 for i = 1:size(signal, 2)
-    r( Ns*(i-1) +1, 1 ) = signal2(1, i);
+    r( Ns*(i-1) +1, 1 ) = signal(1, i);
 end
     
 % r = [signal; zeros(size(signal)); zeros(size(signal)); zeros(size(signal))];
