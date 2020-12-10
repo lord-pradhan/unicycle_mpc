@@ -1,4 +1,4 @@
-%% Testing Nano-Matlab Comms
+%% Testing Teensy-Matlab Comms
 
 %% Clear Everything if Neccessary
 
@@ -15,106 +15,122 @@ fopen(bt);
 clc
 fclose(bt);
 
-%% Define Struct to/from Nano
+%% Define Struct to/from Teensy
 
 % need to count bytes for receiving data
 % see function at bottom for data types
 % _10 means array of size 10 of data type
 
-toNanoInfo.startFlag = 'int8';
-toNanoInfo.time = 'single';
-toNanoInfo.voltInput = 'single';
-toNanoInfo.referenceVec = 'int16_10';
+toTeensyInfo.startFlag = 'int8';
+toTeensyInfo.time = 'single';
+toTeensyInfo.voltInput = 'int16';
+% toNanoInfo.referenceVec = 'int16_10';
 
-fromNanoInfo = {'time' 'single'; 'robotState' 'single_5'};
-% Need to define numBytes to be how much data we expect from the nano
+fromTeensyInfo = {'TeensyCounter' 'int16'; 'time' 'single'; 'robotState' 'single_6'};
+% fromNanoInfo = {'TeensyCounter' 'single'; 'time' 'single'};
 % Should not have to change this unless there is something else we need
-numBytes = 24;
 
-fromNano.time = 0;
-fromNano.robotState = zeros(1,5);
+numBytes = 0;
+sizeFTI = size(fromTeensyInfo);
+for i = 1:sizeFTI(1)
+    numBytes = numBytes + NumBytes(fromTeensyInfo{i,2});
+end
+
+fromTeensy.time = 0;
+fromTeensy.TeensyCounter = -1;
+fromTeensy.robotState = zeros(1,6);
 
 %% Send/Receive from Nano
 clc
-
-% step amplitude (meters)
-stepSize = -0.2;
+close all
 
 t = [];
+tStart = -99;
 robotStates = [];
 
-simTime = 15;
+simTime = 10;
 tic
 flushinput(bt);
 flushoutput(bt);
 
 % Start sending data
-toNano.startFlag = int8(1);
-toNano.time = single(0.0);
-toNano.voltInput = single(0.0);
-toNano.referenceVec = int16(0*ones(1,10));
+toTeensy.startFlag = int8(1);
+toTeensy.time = single(0.0);
+toTeensy.voltInput = int16(111);
+% toNano.referenceVec = int16(4*ones(1,10));
 
-sendData(toNano,bt); 
+sendData(toTeensy,bt); 
 
 count = -1;
+counterSum = 0; % 1 extra send on Teensy side
 while (1)
     count = count + 1;
+    counterSum = counterSum + count;
     currentTime = toc;
     if currentTime > simTime
         break
     end
 
-    
     % Read Data
-    fromNano = readData(fromNano,bt,fromNanoInfo,numBytes);
-    
-    % store data in arrays for later
-    t = [t fromNano.time];
-    robotStates = [robotStates fromNano.robotState];
+    fromTeensy = readData(fromTeensy,bt,fromTeensyInfo,numBytes);
 
     % Send Data
-    toNano.startFlag = int8(1);
-    toNano.time = single(currentTime);
-    toNano.voltInput = single(5.72);
-    if count > 25
-        stepSizeActual = stepSize;
-        disp(stepSize)
-    else
-        stepSizeActual = 0;
-    end
-    toNano.referenceVec = int16(stepSizeActual*1000*ones(1,10));
+    toTeensy.startFlag = int8(1);
+    toTeensy.time = single(currentTime);
+    toTeensy.voltInput = int16(count);
     
-    sendData(toNano,bt);    
+    sendData(toTeensy,bt);    
+    
+    % store data in arrays for later
+    if tStart == -99
+       tStart = fromTeensy.time; 
+    end
+    
+    t = [t (fromTeensy.time) - tStart];
+    robotStates = [robotStates fromTeensy.robotState];
+    disp(fromTeensy.TeensyCounter)
 end
-
-t = t - t(1);
+counterSum = counterSum - count;
+disp(counterSum)
 
 pause(0.2);
 
 % Stop sending data
-toNano.startFlag = int8(0);
-toNano.time = single(0.0);
-toNano.voltInput = single(0.0);
-toNano.referenceVec = int16(0*ones(1,10));
+toTeensy.startFlag = int8(0);
+toTeensy.time = single(0.0);
+toTeensy.voltInput = single(0.0);
+% toNano.referenceVec = int16(0*ones(1,10));
 
-sendData(toNano,bt); 
+sendData(toTeensy,bt);
 
 %% Plots
-figure 
-subplot(221)
-hold on
-plot(t,robotStates(1,:))
-plot([0 15],[0.2 0.2])
+
+figure
+subplot(231)
+plot(t,robotStates(1,:),'r-')
+xlim([0 simTime])
 ylabel('x')
-subplot(222)
-plot(t,robotStates(2,:))
+subplot(232)
+plot(t,robotStates(2,:),'r-')
+xlim([0 simTime])
 ylabel('xDot')
-subplot(223)
-plot(t,robotStates(3,:))
+subplot(233)
+plot(t,robotStates(5,:),'g-')
+xlim([0 simTime])
+ylabel('motorV')
+subplot(234)
+plot(t,robotStates(3,:),'b-')
+xlim([0 simTime])
 ylabel('theta')
-subplot(224)
-plot(t,robotStates(4,:))
+subplot(235)
+plot(t,robotStates(4,:),'b-')
+xlim([0 simTime])
 ylabel('thetaDot')
+
+figure
+plot(t,robotStates(3,:),'b-')
+xlim([0 simTime])
+ylabel('theta')
 
 %% Functions
 
